@@ -5,13 +5,17 @@ from scipy.optimize import least_squares
 from EMS.superquadrics import rotations, superquadric
 
 def EMS_recovery(
-        point, OutlierRatio=0.1, MaxIterationEM=20,
+        point, x0_prior = None, OutlierRatio=0.1, MaxIterationEM=20,
         ToleranceEM=1e-3, RelativeToleranceEM=1e-1,
         MaxOptiIterations=3, Sigma=0, MaxiSwitch=2,
         AdaptiveUpperBound=False, Rescale=True):
-    # The function conducting probabilistic superquadric recovery.
-    # Input: point - point cloud np array of N * 3
-    #
+    '''
+    The function conducting probabilistic superquadric recovery.
+    Input: point - point cloud np array of N * 3
+    x0_prior : array_like, optional
+        Length-11 vector [ε1, ε2, a1, a2, a3, φ, θ, ψ, tx, ty, tz].
+        If None (default), an ellipsoid prior is auto-computed from the data.
+        '''
 
     # ---------------------------------------INITIALIZATIONS--------------------------------------------
     # translate the points to the center of mass
@@ -42,7 +46,7 @@ def EMS_recovery(
 
     # set lower and upper bounds for the superquadrics
     upper = 4 * np.max(np.abs(point))
-    lb = np.array([0, 0, 0.001, 0.001, 0.001, -2 * np.pi, -2 *
+    lb = np.array([0.0, 0.0, 0.001, 0.001, 0.001, -2 * np.pi, -2 *
                   np.pi, -2 * np.pi, -upper, -upper, -upper])
     ub = np.array([2.0, 2.0, upper, upper, upper, 2 * np.pi,
                   2 * np.pi, 2 * np.pi, upper, upper, upper])
@@ -52,6 +56,11 @@ def EMS_recovery(
 
     # set prior outlier density
     p0 = 1 / V
+    
+    if x0_prior is not None:
+        x0 = np.asarray(x0_prior, dtype=float)
+        if x0.shape != (11,):
+            raise ValueError("x0_prior must have 11 elements.")
 
     # initialize variance
     if Sigma == 0:
@@ -62,7 +71,7 @@ def EMS_recovery(
     # initialize EMS
     x = x0
     cost = 0.0
-    num_switch = np.int(0)
+    num_switch = int(0)
     p = np.ones(point.shape[0])
 
     # ---------------------------------------EMS ALGORITHM--------------------------------------------
